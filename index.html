@@ -1,0 +1,874 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>名画里的中国</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=ZCOOL+XiaoWei&display=swap">
+<style>
+  /* 布局：上方题签，左侧地图、右侧按朝代排的名画列表；点进画卷后全屏展开手卷 */
+  :root {
+    --paper: #edf0ec;       /* 冷调的石色底 */
+    --panel: #f8f9f6;
+    --ink: #1c2626;
+    --ink-soft: #57625f;
+    --line: #cdd5d0;
+    --cinnabar: #b13a2a;    /* 朱砂，用于印章和标注 */
+    --on-cinnabar: #fff8f2;
+    --azurite: #2c6b74;     /* 石青，用于次要强调 */
+    --land: #dde4de;
+    --land-edge: #b3c0b9;
+    --font-display: "ZCOOL XiaoWei", "Noto Serif SC", "Songti SC", "STSong", serif;
+    --font-body: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #111716; --panel: #182120; --ink: #e4e8e3; --ink-soft: #9ba7a3; --line: #2c3836;
+      --cinnabar: #e0654f; --on-cinnabar: #1a0d0a; --azurite: #6db3b9; --land: #1f2b29; --land-edge: #3d4e4a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #111716; --panel: #182120; --ink: #e4e8e3; --ink-soft: #9ba7a3; --line: #2c3836;
+    --cinnabar: #e0654f; --on-cinnabar: #1a0d0a; --azurite: #6db3b9; --land: #1f2b29; --land-edge: #3d4e4a;
+    color-scheme: dark;
+  }
+
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--azurite); outline-offset: 2px; }
+
+  .app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 16px;
+    padding-block: 14px 10px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-bottom: 1px solid var(--line);
+  }
+  .top h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 30px; letter-spacing: 0.08em; line-height: 1.2; }
+  .top p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+
+  .stage { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; }
+  .mapwrap { position: relative; min-height: 0; min-width: 0; }
+  #map { position: absolute; inset: 0; }
+  .eras {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .era-chip {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 999px;
+    padding: 2px 12px;
+    font-size: 13px;
+  }
+  .era-chip small { color: var(--ink-soft); margin-left: 4px; font-variant-numeric: tabular-nums; }
+  .era-chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .era-chip[aria-pressed="true"] small { color: inherit; opacity: 0.7; }
+
+  .side {
+    min-height: 0;
+    overflow-y: auto;
+    border-left: 1px solid var(--line);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+  }
+  .detail { padding: 18px 20px 16px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+  .detail .era { font-size: 13px; letter-spacing: 0.1em; color: var(--azurite); }
+  .detail h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 28px; line-height: 1.25; text-wrap: balance; }
+  .detail dl { margin: 2px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 0 10px; font-size: 14px; }
+  .detail dt { color: var(--ink-soft); }
+  .detail dd { margin: 0; }
+  .detail .note { margin: 4px 0 0; }
+  .detail .thumb { width: 100%; border-radius: 4px; border: 1px solid var(--line); display: block; }
+  .detail .basis { font-size: 12px; color: var(--ink-soft); }
+  .detail a { color: var(--azurite); font-size: 14px; }
+  .open {
+    justify-self: start;
+    margin-top: 6px;
+    border: 0;
+    border-radius: 999px;
+    padding: 8px 18px;
+    background: var(--cinnabar);
+    color: var(--on-cinnabar);
+    font-weight: 600;
+  }
+
+  .list { list-style: none; margin: 0; padding: 4px 0 16px; }
+  .list h3 { margin: 14px 20px 2px; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; color: var(--ink-soft); }
+  .item {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 10px;
+    padding: 6px 20px;
+    border: 0;
+    background: none;
+    text-align: left;
+  }
+  .item:hover { background: var(--paper); }
+  .item[aria-current="true"] { background: var(--paper); box-shadow: inset 3px 0 0 var(--cinnabar); }
+  .item .nm { font-family: var(--font-display); font-size: 18px; line-height: 1.3; }
+  .item .pl { grid-column: 1 / -1; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+  .item .kind { font-size: 12px; color: var(--azurite); align-self: center; }
+  .item .ready {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    font-size: 11px;
+    border-radius: 3px;
+    background: var(--cinnabar);
+    color: var(--on-cinnabar);
+    vertical-align: 2px;
+    font-family: var(--font-body);
+  }
+
+  /* ---------- 画卷 ---------- */
+  .viewer { position: fixed; inset: 0; z-index: 20; background: var(--paper); display: grid; grid-template-rows: auto 1fr auto; }
+  .vbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    padding-block: calc(10px + env(safe-area-inset-top, 0px)) 10px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .vbar h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 24px; letter-spacing: 0.06em; }
+  .vbar .meta { color: var(--ink-soft); font-size: 13px; }
+  .ghost { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 5px 14px; font-size: 14px; }
+  .search { position: relative; margin-left: auto; flex: 0 1 300px; min-width: 0; }
+  .search input { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; background: var(--paper); }
+  .results {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 5;
+    list-style: none; margin: 0; padding: 6px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    max-height: 50vh; overflow-y: auto;
+  }
+  .results button { width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 6px; }
+  .results button:hover, .results button:focus-visible { background: var(--paper); }
+  .results small { color: var(--ink-soft); margin-left: 6px; }
+
+  .canvas { position: relative; min-height: 0; }
+  #osd { position: absolute; inset: 0; }
+  .dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid var(--on-cinnabar);
+    background: var(--cinnabar);
+    color: var(--on-cinnabar);
+    font: 600 11px/18px var(--font-body);
+    text-align: center;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+    padding: 0;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  .dot.dim { opacity: 0.18; }
+  .dot.on { transform: scale(1.35); box-shadow: 0 0 0 4px rgb(177 58 42 / 0.35); }
+  .card {
+    position: absolute;
+    left: max(16px, env(safe-area-inset-left, 0px));
+    bottom: 16px;
+    z-index: 4;
+    width: min(380px, calc(100% - 32px));
+    box-sizing: border-box;
+    padding: 14px 16px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgb(0 0 0 / 0.12);
+  }
+  .card .cat { font-size: 12px; letter-spacing: 0.12em; color: var(--azurite); }
+  .card h3 { margin: 2px 0 4px; font-family: var(--font-display); font-weight: 400; font-size: 21px; line-height: 1.3; }
+  .card p { margin: 0; }
+  .card .nav { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 13px; color: var(--ink-soft); }
+  .card .nav span { font-variant-numeric: tabular-nums; }
+
+  .foot {
+    display: grid;
+    gap: 8px;
+    padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 2px 12px; font-size: 13px; }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .strip { position: relative; height: 44px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); cursor: pointer; background: var(--paper); }
+  .strip img { position: absolute; top: 0; height: 100%; display: block; }
+  .lens { position: absolute; top: 0; bottom: 0; border: 2px solid var(--cinnabar); background: rgb(177 58 42 / 0.12); pointer-events: none; }
+  .credit { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .credit a { color: inherit; }
+
+  @media (max-width: 760px) {
+    .stage { grid-template-columns: 1fr; grid-template-rows: 50% 50%; }
+    .side { border-left: 0; border-top: 1px solid var(--line); }
+    .top h1 { font-size: 24px; }
+    .search { flex-basis: 100%; margin-left: 0; order: 3; }
+    .card { bottom: 10px; }
+    .era-chip { padding: 1px 9px; font-size: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .dot { transition: none; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <h1>名画里的中国</h1>
+    <p>把历代名画放回它画的地方。点地图上的印章，或者按朝代挑一幅。</p>
+  </header>
+  <main class="stage">
+    <div class="mapwrap">
+      <div id="map" role="img" aria-label="中国地图，标出了每幅名画描绘的地点"></div>
+      <div class="eras" id="eras" role="group" aria-label="按朝代筛选"></div>
+    </div>
+    <aside class="side">
+      <section class="detail" id="detail" aria-live="polite"></section>
+      <ul class="list" id="list"></ul>
+    </aside>
+  </main>
+</div>
+
+<section class="viewer" id="viewer" hidden>
+  <div class="vbar">
+    <button class="ghost" id="back" type="button">← 回到地图</button>
+    <h2 id="v-title"></h2>
+    <span class="meta" id="v-meta"></span>
+    <div class="search">
+      <input id="q" type="search" autocomplete="off" aria-label="在画里搜索">
+      <ul class="results" id="results" hidden></ul>
+    </div>
+  </div>
+  <div class="canvas">
+    <div id="osd"></div>
+    <article class="card" id="card"></article>
+  </div>
+  <div class="foot">
+    <div class="chips" id="chips"></div>
+    <div class="strip" id="strip" title="整卷缩略图，点一下跳到那里"><div class="lens" id="lens"></div></div>
+    <p class="credit" id="v-credit"></p>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/china.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
+<script>
+// 时期分组：用来在地图上按朝代筛选
+const PERIODS = [
+  ["魏晋南北朝", "220–589"],
+  ["隋唐", "581–907"],
+  ["五代宋辽金", "907–1279"],
+  ["元", "1271–1368"],
+  ["明", "1368–1644"],
+  ["清", "1644–1912"],
+  ["近现代", "1912 至今"],
+];
+
+// 名画和它描绘的地点，按年代排列。
+// basis：地点是怎么来的。不写就是“画中所绘”；“一说”表示说法不一；“画意”“所在地”用于没有具体实景的作品。
+const PAINTINGS = [
+  // 魏晋南北朝
+  { id: "luoshen", name: "洛神赋图", period: "魏晋南北朝", era: "东晋", artist: "顾恺之（传，宋摹本）", kind: "卷轴",
+    place: "洛水之滨（今河南洛阳）", lng: 112.45, lat: 34.62, keep: "北京故宫博物院等",
+    note: "依曹植《洛神赋》而画，曹植在洛水边与洛神相遇又分别，一个故事在长卷里连续展开。" },
+  { id: "kizil", name: "克孜尔石窟壁画", period: "魏晋南北朝", era: "古龟兹国（约3–9世纪）", artist: "佚名", kind: "壁画",
+    place: "拜城克孜尔（今新疆阿克苏）", lng: 82.51, lat: 41.78, keep: "克孜尔石窟",
+    note: "中国最早的大型石窟群之一。窟顶用菱形格子画满佛本生故事，一格一个故事，青金石的蓝色至今鲜亮。" },
+  { id: "jian", name: "集安高句丽古墓壁画", period: "魏晋南北朝", era: "高句丽（约4–6世纪）", artist: "佚名", kind: "壁画",
+    place: "集安（今吉林通化）", lng: 126.18, lat: 41.12, keep: "集安高句丽古墓",
+    note: "墓室里画着摔跤、狩猎、舞蹈和日月神，是东北地区保存最好的早期壁画。" },
+  // 隋唐
+  { id: "bunian", name: "步辇图", period: "隋唐", era: "唐", artist: "阎立本", kind: "卷轴",
+    place: "长安（今陕西西安）", lng: 108.94, lat: 34.34, keep: "北京故宫博物院",
+    note: "唐太宗坐在步辇上，接见来长安迎娶文成公主的吐蕃使者禄东赞。" },
+  { id: "guoguo", name: "虢国夫人游春图", period: "隋唐", era: "唐", artist: "张萱（宋摹本）", kind: "卷轴",
+    place: "长安（今陕西西安）", lng: 109.08, lat: 34.22, keep: "辽宁省博物馆",
+    note: "杨贵妃的姐姐虢国夫人带着随从骑马踏青。画里不画一草一木，春天全靠人物的衣着和神态。" },
+  { id: "xingshu", name: "明皇幸蜀图", period: "隋唐", era: "唐", artist: "李昭道（传）", kind: "立轴",
+    place: "蜀道（今四川北部）", lng: 105.57, lat: 32.2, keep: "台北故宫博物院",
+    note: "安史之乱时唐玄宗避难入蜀，人马行进在险峻的蜀道山间，是青绿山水的早期名作。" },
+  { id: "wangchuan", name: "辋川图", period: "隋唐", era: "唐", artist: "王维（原作已佚）", kind: "卷轴",
+    place: "辋川别业（今陕西蓝田）", lng: 109.35, lat: 34.07, keep: "",
+    note: "王维在终南山下辋川的别墅，二十处景致写成《辋川集》，又画成长卷。原作早已失传，今见多为后人摹本。" },
+  { id: "dunhuang", name: "张议潮统军出行图", period: "隋唐", era: "晚唐", artist: "佚名", kind: "壁画",
+    place: "敦煌莫高窟第156窟（今甘肃）", lng: 94.8, lat: 40.04, keep: "敦煌莫高窟",
+    note: "张议潮收复河西后率军出行，鼓乐、仪仗、骑兵排成长队，是了解唐代仪仗的珍贵图像。" },
+  { id: "astana", name: "伏羲女娲图", period: "隋唐", era: "唐", artist: "佚名", kind: "绢画",
+    place: "吐鲁番阿斯塔纳古墓（今新疆）", lng: 89.53, lat: 42.86, keep: "新疆维吾尔自治区博物馆等",
+    note: "人首蛇身的伏羲女娲尾部相交，手持规和矩，四周画满日月星辰。出土时钉在墓室顶上。" },
+  { id: "zhenxiao", name: "贞孝公主墓壁画", period: "隋唐", era: "渤海国（唐）", artist: "佚名", kind: "壁画",
+    place: "和龙龙头山（今吉林延边）", lng: 128.97, lat: 42.53, keep: "",
+    note: "渤海国文王之女贞孝公主的墓中，十二位侍卫、侍从和乐伎的形象，衣着与唐代长安如出一辙。" },
+  // 五代宋辽金
+  { id: "yeyan", name: "韩熙载夜宴图", period: "五代宋辽金", era: "五代 · 南唐", artist: "顾闳中", kind: "卷轴",
+    place: "金陵（今江苏南京）", lng: 118.78, lat: 32.06, keep: "北京故宫博物院",
+    note: "南唐官员韩熙载在金陵府中通宵宴乐，分听乐、观舞、歇息、清吹、送别五段。" },
+  { id: "xiaoxiang", name: "潇湘图", period: "五代宋辽金", era: "五代 · 南唐", artist: "董源", kind: "卷轴",
+    place: "潇湘（今湖南湘江一带）", lng: 111.61, lat: 26.42, basis: "一说", keep: "北京故宫博物院",
+    note: "董源用点子皴画平缓的山峦和水面，湖上有小舟、岸边有人迎候。画名据说是明代董其昌起的。" },
+  { id: "kuanglu", name: "匡庐图", period: "五代宋辽金", era: "五代", artist: "荆浩（传）", kind: "立轴",
+    place: "庐山（今江西九江）", lng: 115.9, lat: 29.66, keep: "台北故宫博物院",
+    note: "匡庐就是庐山。高峰层叠、飞瀑直下，是北方全景式山水的代表作。" },
+  { id: "qingming", name: "清明上河图", period: "五代宋辽金", era: "北宋", artist: "张择端", kind: "卷轴",
+    place: "汴京（今河南开封）", lng: 114.31, lat: 34.8, keep: "北京故宫博物院", scroll: "qingming", thumb: "img/qm-card.jpg",
+    note: "从城外郊野一路画到城内街市，汴河两岸的船、桥、店铺和几百个人物，虹桥一段最热闹。" },
+  { id: "ruihe", name: "瑞鹤图", period: "五代宋辽金", era: "北宋", artist: "赵佶", kind: "卷轴",
+    place: "汴京宣德门（今河南开封）", lng: 114.38, lat: 34.9, keep: "辽宁省博物馆",
+    note: "政和二年上元节次日，一群仙鹤飞临宫城宣德门上空，宋徽宗亲手画下这一景，并题诗记事。" },
+  { id: "xiyuan", name: "西园雅集图", period: "五代宋辽金", era: "北宋", artist: "李公麟（原作已佚）", kind: "卷轴",
+    place: "驸马王诜的西园（今河南开封）", lng: 114.22, lat: 34.72, keep: "",
+    note: "苏轼、苏辙、黄庭坚、米芾等十六位文人在王诜家园中写诗、作画、谈禅。原作不存，历代摹本很多。" },
+  { id: "xishan", name: "溪山行旅图", period: "五代宋辽金", era: "北宋", artist: "范宽", kind: "立轴",
+    place: "关中秦岭一带", lng: 108.6, lat: 33.92, basis: "一说", keep: "台北故宫博物院",
+    note: "巨峰几乎占满画面，山脚下一队驮货的骡马正在赶路。范宽长居终南、太华一带，画的是关中山水。" },
+  { id: "qianli", name: "千里江山图", period: "五代宋辽金", era: "北宋", artist: "王希孟", kind: "卷轴",
+    place: "庐山、鄱阳湖一带", lng: 116.3, lat: 29.1, basis: "一说", keep: "北京故宫博物院",
+    note: "十八岁的王希孟用石青石绿画出近十二米的青绿长卷。画的不是某一处实景，常有人认为取材于庐山和鄱阳湖。" },
+  { id: "mixiao", name: "潇湘奇观图", period: "五代宋辽金", era: "南宋", artist: "米友仁", kind: "卷轴",
+    place: "京口（今江苏镇江）", lng: 119.45, lat: 32.2, keep: "北京故宫博物院",
+    note: "画镇江城外的云山烟雨，用横点堆出湿润的山峦，就是有名的“米点山水”。" },
+  { id: "xihu", name: "西湖图", period: "五代宋辽金", era: "南宋", artist: "李嵩", kind: "卷轴",
+    place: "临安西湖（今浙江杭州）", lng: 120.15, lat: 30.25, keep: "上海博物馆",
+    note: "以俯瞰的角度画西湖全景，湖周的山、堤、塔都能对上今天的位置。" },
+  { id: "siji", name: "四景山水图", period: "五代宋辽金", era: "南宋", artist: "刘松年", kind: "卷轴",
+    place: "临安西湖（今浙江杭州）", lng: 120.06, lat: 30.32, keep: "北京故宫博物院",
+    note: "四段分画春夏秋冬，西湖边的庭院、长堤和楼阁随季节变化。" },
+  { id: "bezeklik", name: "柏孜克里克千佛洞壁画", period: "五代宋辽金", era: "高昌回鹘（约10–13世纪）", artist: "佚名", kind: "壁画",
+    place: "吐鲁番火焰山下（今新疆）", lng: 89.6, lat: 42.96, keep: "柏孜克里克千佛洞",
+    note: "回鹘王国的佛教壁画，供养人像衣饰华丽。二十世纪初大量壁画被切割运往德国，部分毁于二战。" },
+  { id: "fanxiang", name: "梵像卷", period: "五代宋辽金", era: "大理国（约1180年）", artist: "张胜温", kind: "卷轴",
+    place: "大理（今云南）", lng: 100.23, lat: 25.6, keep: "台北故宫博物院",
+    note: "大理国画师张胜温为国王所画，长达十六米，从大理国王礼佛开始，绘出诸佛菩萨和护法神。" },
+  { id: "kulun", name: "库伦辽墓壁画", period: "五代宋辽金", era: "辽", artist: "佚名", kind: "壁画",
+    place: "库伦旗（今内蒙古通辽）", lng: 121.77, lat: 42.73, keep: "",
+    note: "契丹贵族墓中的出行图和归来图，车马、驼车、仆从排成长列，是辽代草原生活的写照。" },
+  { id: "wenji", name: "文姬归汉图", period: "五代宋辽金", era: "金", artist: "张瑀", kind: "卷轴",
+    place: "塞北（今内蒙古一带）", lng: 111.7, lat: 40.8, basis: "画意", keep: "吉林省博物院",
+    note: "蔡文姬被赎回中原，一行人顶着北风在草原上行进，衣袍、马鬃都被风吹向一边。" },
+  // 元
+  { id: "quehua", name: "鹊华秋色图", period: "元", era: "元", artist: "赵孟頫", kind: "卷轴",
+    place: "济南城外鹊山、华不注山", lng: 117.0, lat: 36.7, keep: "台北故宫博物院",
+    note: "赵孟頫为祖籍济南却没去过的友人周密画下家乡风景，一边是圆顶的鹊山，一边是尖峭的华不注山。" },
+  { id: "fuchun", name: "富春山居图", period: "元", era: "元", artist: "黄公望", kind: "卷轴",
+    place: "富春江（今浙江桐庐、富阳）", lng: 119.7, lat: 29.8, keep: "浙江省博物馆、台北故宫博物院", scroll: "fuchun", thumb: "img/fc-card.jpg",
+    note: "黄公望晚年画富春江两岸。明末险些被焚，烧成两段：前段《剩山图》在浙江，后段《无用师卷》在台北。这里把两段按原样拼在一起看。" },
+  { id: "shuicun", name: "水村图", period: "元", era: "元", artist: "赵孟頫", kind: "卷轴",
+    place: "分湖（今江苏苏州吴江）", lng: 120.75, lat: 30.98, keep: "北京故宫博物院",
+    note: "赵孟頫为友人钱德钧画他在分湖边的隐居地，平远的水村、坡岸和疏林。" },
+  { id: "dongting", name: "洞庭东山图", period: "元", era: "元", artist: "赵孟頫", kind: "立轴",
+    place: "太湖洞庭东山（今江苏苏州）", lng: 120.4, lat: 31.08, keep: "上海博物馆",
+    note: "太湖中的东山，湖水环绕，山上林木葱郁。" },
+  { id: "jiufeng", name: "九峰雪霁图", period: "元", era: "元", artist: "黄公望", kind: "立轴",
+    place: "松江九峰（今上海松江）", lng: 121.22, lat: 31.05, keep: "北京故宫博物院",
+    note: "黄公望八十岁时画的雪景，松江的九座山峰被白雪覆盖，天空和水面都用淡墨烘染。" },
+  { id: "qingbian", name: "青卞隐居图", period: "元", era: "元", artist: "王蒙", kind: "立轴",
+    place: "卞山（今浙江湖州）", lng: 120.08, lat: 30.95, keep: "上海博物馆",
+    note: "王蒙画湖州的卞山，山势盘旋层叠、笔触繁密，被董其昌称为“天下第一王叔明画”。" },
+  { id: "yuzhuang", name: "渔庄秋霁图", period: "元", era: "元", artist: "倪瓒", kind: "立轴",
+    place: "太湖一带（今江苏无锡）", lng: 120.28, lat: 31.48, basis: "一说", keep: "上海博物馆",
+    note: "倪瓒的典型构图：近处几棵枯树，中间一片空白的湖水，远处一抹淡山，萧疏冷寂。" },
+  { id: "yueyang", name: "岳阳楼图", period: "元", era: "元", artist: "夏永", kind: "册页",
+    place: "洞庭湖畔岳阳楼（今湖南岳阳）", lng: 113.13, lat: 29.37, keep: "",
+    note: "用极细的界画线条画岳阳楼的斗拱和栏杆，远处是洞庭湖水。" },
+  { id: "tengwang", name: "滕王阁图", period: "元", era: "元", artist: "夏永", kind: "册页",
+    place: "赣江边滕王阁（今江西南昌）", lng: 115.89, lat: 28.68, keep: "",
+    note: "同样出自夏永之手的界画，楼阁一丝不苟，空白处以小字抄录王勃《滕王阁序》。" },
+  { id: "shalu", name: "夏鲁寺壁画", period: "元", era: "元", artist: "佚名", kind: "壁画",
+    place: "夏鲁寺（今西藏日喀则）", lng: 88.95, lat: 29.18, keep: "夏鲁寺",
+    note: "元代重修的夏鲁寺融合了汉藏两种建筑和绘画风格，殿内壁画色彩浓重，人物带有尼泊尔艺术的影子。" },
+  // 明
+  { id: "lushan", name: "庐山高图", period: "明", era: "明", artist: "沈周", kind: "立轴",
+    place: "庐山（今江西九江）", lng: 116.02, lat: 29.52, keep: "台北故宫博物院",
+    note: "沈周为老师陈宽祝七十寿辰而作，用庐山的高峻比喻老师的品德。" },
+  { id: "huishan", name: "惠山茶会图", period: "明", era: "明", artist: "文徵明", kind: "卷轴",
+    place: "无锡惠山", lng: 120.25, lat: 31.58, keep: "北京故宫博物院",
+    note: "清明时节，文徵明和好友到无锡惠山的泉边汲水煮茶、吟诗聚会。" },
+  { id: "zhuozheng", name: "拙政园图", period: "明", era: "明", artist: "文徵明", kind: "册页",
+    place: "苏州拙政园", lng: 120.66, lat: 31.36, keep: "",
+    note: "文徵明多次为好友王献臣的拙政园作画，曾作三十一景图册，一景一图，配诗配文。" },
+  { id: "nandu", name: "南都繁会图", period: "明", era: "明", artist: "佚名（旧传仇英）", kind: "卷轴",
+    place: "南京", lng: 118.84, lat: 32.0, keep: "中国国家博物馆",
+    note: "画明代南京城内外的街市，招牌幌子有一百多块，是明代版的城市风俗长卷。" },
+  { id: "qixia", name: "栖霞山图", period: "明", era: "明", artist: "张宏", kind: "立轴",
+    place: "南京栖霞山", lng: 118.95, lat: 32.15, keep: "",
+    note: "张宏用写实的眼光画南京城东北的栖霞山，山寺和游人都画得具体可辨。" },
+  { id: "huangdu", name: "皇都积胜图", period: "明", era: "明", artist: "佚名", kind: "卷轴",
+    place: "北京", lng: 116.42, lat: 39.93, keep: "中国国家博物馆",
+    note: "从卢沟桥一路画进北京城，正阳门前的集市、棋盘街的商铺都在卷中。" },
+  { id: "guge", name: "古格王国遗址壁画", period: "明", era: "古格王国（约15–16世纪）", artist: "佚名", kind: "壁画",
+    place: "札达（今西藏阿里）", lng: 79.8, lat: 31.48, keep: "古格王国遗址",
+    note: "海拔近四千米的土林之上，古格王国的佛殿里留下大片壁画，色彩艳丽，人物舞姿生动。" },
+  // 清
+  { id: "gusu", name: "姑苏繁华图", period: "清", era: "清", artist: "徐扬", kind: "卷轴",
+    place: "苏州城内外", lng: 120.58, lat: 31.29, keep: "辽宁省博物馆",
+    note: "又名《盛世滋生图》，十二米多的长卷画乾隆年间苏州的街市、河道和山村，常被称作清代的《清明上河图》。" },
+  { id: "huangshan", name: "黄山八胜图册", period: "清", era: "清", artist: "石涛", kind: "册页",
+    place: "黄山（今安徽）", lng: 118.17, lat: 30.13, keep: "日本泉屋博古馆",
+    note: "石涛多次登黄山，这套册页画了黄山的奇峰、云海和古松。" },
+  { id: "yuanming", name: "圆明园四十景图", period: "清", era: "清", artist: "唐岱、沈源", kind: "册页",
+    place: "北京圆明园", lng: 116.3, lat: 40.01, keep: "法国国家图书馆",
+    note: "乾隆命宫廷画家画下圆明园四十处景致。圆明园1860年被英法联军焚毁，这套画成了复原它的重要依据。" },
+  { id: "wanshuyuan", name: "万树园赐宴图", period: "清", era: "清", artist: "郎世宁等", kind: "卷轴",
+    place: "承德避暑山庄", lng: 117.94, lat: 40.99, keep: "北京故宫博物院",
+    note: "乾隆在避暑山庄万树园设宴款待归附的蒙古杜尔伯特部首领，中西画法合于一图。" },
+  { id: "pingding", name: "平定西域战图", period: "清", era: "清", artist: "郎世宁等起稿", kind: "铜版画",
+    place: "伊犁格登山（今新疆昭苏）", lng: 81.05, lat: 43.2, keep: "",
+    note: "乾隆平定准噶尔后，命宫廷画家起稿，送到法国刻成铜版。第一幅《格登鄂拉斫营》画的就是格登山夜袭。" },
+  { id: "potala", name: "布达拉宫壁画", period: "清", era: "清（17世纪）", artist: "佚名", kind: "壁画",
+    place: "拉萨布达拉宫（今西藏）", lng: 91.12, lat: 29.66, keep: "布达拉宫",
+    note: "宫内壁画里有文成公主进藏的场景，和唐代《步辇图》讲的是同一段故事，一幅在长安，一幅在拉萨。" },
+  { id: "fanshe", name: "台湾番社采风图", period: "清", era: "清", artist: "六十七（主持）", kind: "册页",
+    place: "台湾", lng: 120.9, lat: 23.7, keep: "中央研究院历史语言研究所（台北）",
+    note: "清代巡台御史六十七让画工记录台湾原住民的耕种、狩猎、织布等日常生活。" },
+  // 近现代
+  { id: "baren", name: "巴人汲水图", period: "近现代", era: "1937年", artist: "徐悲鸿", kind: "立轴",
+    place: "重庆", lng: 106.55, lat: 29.56,
+    note: "抗战时期徐悲鸿在重庆，画江边百姓一级一级爬坡挑水的艰辛。" },
+  { id: "jiangshan", name: "江山如此多娇", period: "近现代", era: "1959年", artist: "傅抱石、关山月", kind: "巨幅",
+    place: "人民大会堂（北京）", lng: 116.36, lat: 39.88, basis: "所在地", keep: "人民大会堂",
+    note: "为新落成的人民大会堂所作的巨幅国画，画意取自毛泽东《沁园春·雪》，一画之中有长城、黄河、江南和雪山。" },
+  { id: "zhuanzhan", name: "转战陕北", period: "近现代", era: "1959年", artist: "石鲁", kind: "立轴",
+    place: "陕北（今陕西延安一带）", lng: 109.49, lat: 36.6, keep: "中国国家博物馆",
+    note: "毛泽东立于黄土高原之上的背影，沟壑纵横的高原占满画面。" },
+  { id: "jingbo", name: "镜泊飞泉", period: "近现代", era: "1961年", artist: "傅抱石", kind: "立轴",
+    place: "镜泊湖吊水楼瀑布（今黑龙江牡丹江）", lng: 128.98, lat: 43.88,
+    note: "傅抱石东北写生时所作，镜泊湖的瀑布从熔岩崖壁上倾泻而下。" },
+  { id: "hongyan", name: "红岩", period: "近现代", era: "1962年", artist: "钱松喦", kind: "立轴",
+    place: "重庆红岩村", lng: 106.46, lat: 29.62, keep: "中国美术馆",
+    note: "红岩村是抗战时期中共中央南方局所在地，画家用浓重的赭红画出山岩。" },
+  { id: "wanshan", name: "万山红遍", period: "近现代", era: "1964年", artist: "李可染", kind: "立轴",
+    place: "长沙岳麓山一带", lng: 112.94, lat: 28.23, basis: "画意",
+    note: "取毛泽东《沁园春·长沙》“看万山红遍，层林尽染”的词意，用大量朱砂画满山红叶。" },
+  { id: "changjiang", name: "长江万里图", period: "近现代", era: "1968年", artist: "张大千", kind: "卷轴",
+    place: "长江三峡一带", lng: 110.5, lat: 31.0, basis: "画意",
+    note: "张大千晚年在海外凭记忆画长江，从岷江源头一路画到出海口，近二十米的泼墨泼彩长卷。" },
+  { id: "lijiang", name: "漓江胜境", period: "近现代", era: "现代", artist: "李可染", kind: "立轴",
+    place: "桂林漓江", lng: 110.45, lat: 25.0,
+    note: "李可染多次到漓江写生，用浓重的积墨画出雨后山水的湿润和光感。" },
+];
+
+/* ---------- 可以展开的画卷 ---------- */
+const QINGMING_NOTES = [
+  { x: 36520, y: 820, r: 420, cat: "车轿牲畜", title: "卷首的驴队", tags: ["毛驴", "驴", "木炭", "开头"],
+    desc: "画卷一开头，五头毛驴驮着货从疏林里走出来，赶驴人跟在后面，过了小木桥就往城里去。常说驮的是木炭。" },
+  { x: 37400, y: 320, r: 520, cat: "画外", title: "历代收藏印", tags: ["印", "印章", "收藏"],
+    desc: "画边和隔水绫上一方方朱红印章，是历代收藏者盖下的，记录着这幅画九百年来经过了谁的手。" },
+  { x: 33800, y: 760, r: 520, cat: "建筑", title: "薄雾里的农舍", tags: ["茅屋", "农村", "早春", "柳树"],
+    desc: "几间茅草农舍藏在树后，柳树还没吐绿，地上一片寒意，告诉你这是早春时节的汴京城郊。" },
+  { x: 30880, y: 500, r: 300, cat: "车轿牲畜", title: "插满柳枝的轿子", tags: ["轿子", "清明", "扫墓", "柳枝"],
+    desc: "轿顶插满柳枝和野花，前后跟着骑马、挑担的随从，是扫墓踏青后回城的人家。画名里的“清明”就藏在这样的细节里。" },
+  { x: 30160, y: 800, r: 320, cat: "车轿牲畜", title: "脱缰的牲口", tags: ["马", "驴", "惊马", "狂奔"],
+    desc: "一头牲口挣脱缰绳在田边狂奔，远处有人边追边喊，郊野的安静被一下子打破。这里的绢面有些磨损，放大细看才找得到。" },
+  { x: 30400, y: 1460, r: 340, cat: "人物", title: "赶路进城的行人", tags: ["骑驴", "挑担", "行人"],
+    desc: "有人骑着驴，有人挑着担，有人牵着牲口步行，沿着郊野小路慢慢往城里走。" },
+  { x: 29540, y: 660, r: 300, cat: "车轿牲畜", title: "农舍前歇息的牛", tags: ["牛", "耕牛", "农家"],
+    desc: "茅屋前两头牛卧着歇息，旁边就是农家的院子和草棚。" },
+  { x: 28000, y: 860, r: 320, cat: "市井", title: "码头卸货", tags: ["脚夫", "麻袋", "卸货", "码头"],
+    desc: "岸边堆着一袋袋货，脚夫弯腰把货扛上岸，旁边有人站着清点。" },
+  { x: 27460, y: 700, r: 360, cat: "市井", title: "河岸边的食店", tags: ["饭馆", "凉棚", "吃饭", "伞"],
+    desc: "临河搭着凉棚，摆了桌凳，撑着一把大伞，船工靠岸就能上来吃一口。" },
+  { x: 24400, y: 940, r: 620, cat: "船只", title: "靠岸的大漕船", tags: ["船", "漕船", "运粮", "撑篙"],
+    desc: "汴河是北宋运粮的命脉，这艘大船正在靠岸，船头船尾都有人撑篙掌舵，篷顶上还堆着货。" },
+  { x: 24420, y: 370, r: 300, cat: "人物", title: "扛麻袋的脚夫", tags: ["脚夫", "麻袋", "搬运"],
+    desc: "几个脚夫背着沉甸甸的麻袋，一个跟着一个从船边往岸上的货栈走。" },
+  { x: 23200, y: 300, r: 360, cat: "市井", title: "临河楼上的食客", tags: ["饭馆", "吃饭", "楼"],
+    desc: "饭馆的楼台正对着河，客人靠着栏杆吃饭，一边吃一边看船来船往。" },
+  { x: 21900, y: 240, r: 320, cat: "人物", title: "拉纤的纤夫", tags: ["纤夫", "拉纤", "绳子"],
+    desc: "几个纤夫弓着身子走在岸上，用长绳把逆水的船一步步往上游拉。" },
+  { x: 19800, y: 640, r: 420, cat: "船只", title: "惊险过桥的大船", tags: ["桅杆", "船", "过桥", "撞桥"],
+    desc: "全卷最紧张的一幕：大船的桅杆来不及放倒，眼看要撞上桥，船上的人撑篙、用竹竿顶住桥身，桥上的人也探出身子大喊。" },
+  { x: 19400, y: 300, r: 800, cat: "建筑", title: "虹桥", tags: ["桥", "拱桥", "汴河"],
+    desc: "横跨汴河的木拱桥，河里不立一根桥柱，远看像一道彩虹。桥上挤满行人、摊贩和看热闹的人，是全卷最热闹的地方。" },
+  { x: 18740, y: 460, r: 280, cat: "人物", title: "桥上相遇的轿子", tags: ["轿子", "骑马", "争道"],
+    desc: "一乘轿子正在过桥，前面迎面来了骑马的人，桥面窄，两边的随从都不肯让路。" },
+  { x: 18760, y: 920, r: 320, cat: "市井", title: "桥头的大伞摊", tags: ["伞", "摊贩", "小吃", "桥头"],
+    desc: "桥头支起一把把大伞，伞下摆摊卖吃食和杂货，行人挤在摊子之间。" },
+  { x: 17620, y: 1380, r: 320, cat: "车轿牲畜", title: "满载货物的车", tags: ["车", "推车", "运货"],
+    desc: "车上货物堆得老高，前面有牲口拉、有人牵，后面还有人帮着推。" },
+  { x: 17080, y: 1000, r: 520, cat: "建筑", title: "十千脚店", tags: ["酒店", "彩楼欢门", "脚店", "招牌"],
+    desc: "桥头这家酒店门前用竹木扎起高高的彩楼欢门，招牌上写着“脚店”。脚店是从大酒楼批酒来卖的小酒店。" },
+  { x: 16100, y: 1360, r: 320, cat: "市井", title: "楼上的酒客", tags: ["喝酒", "酒楼", "吃饭"],
+    desc: "脚店楼上的客人围着桌子喝酒，栏杆外就是汴河的风景。" },
+  { x: 10000, y: 1260, r: 420, cat: "车轿牲畜", title: "太平车", tags: ["牛车", "车", "运货", "牛"],
+    desc: "几头牛一起拉的大车叫太平车，车身大、载重多、走得慢，是宋代城里运货的主力。" },
+  { x: 8600, y: 1480, r: 360, cat: "建筑", title: "护城河上的木桥", tags: ["桥", "护城河", "看热闹"],
+    desc: "城门外的护城河上架着平桥，几个人趴在桥栏上往河里张望。" },
+  { x: 7040, y: 440, r: 620, cat: "建筑", title: "城门楼", tags: ["城门", "城楼", "城墙"],
+    desc: "高大的城门楼，下面是夯土的城台和门洞。过了这里就进了汴京城内。" },
+  { x: 7480, y: 1180, r: 380, cat: "车轿牲畜", title: "骆驼商队", tags: ["骆驼", "商队", "西北"],
+    desc: "一头骆驼正从城门洞里探出身子，城里还有几头驮着货的骆驼，是从西北远道而来的商队。" },
+  { x: 4900, y: 560, r: 650, cat: "建筑", title: "孙羊正店", tags: ["酒楼", "正店", "彩楼欢门", "招牌"],
+    desc: "城里最气派的酒楼，门前扎着彩楼欢门，挂着“正店”招牌。正店是有官府许可、能自己酿酒的大酒楼。" },
+  { x: 4760, y: 1200, r: 320, cat: "车轿牲畜", title: "抬着轿子过街", tags: ["轿子", "轿夫"],
+    desc: "两乘轿子正被抬着走过酒楼前的街口，轿夫一前一后扛着轿杆。" },
+];
+
+const FUCHUN_NOTES = [
+  { x: 16915, y: 450, r: 420, cat: "画外", title: "火烧留下的断口", tags: ["火烧", "合璧", "剩山图", "无用师卷", "吴洪裕"],
+    desc: "1650年，收藏者吴洪裕临终要把这卷画烧了殉葬，侄子从火中抢出，画已烧成两段。右边的小段后称《剩山图》，左边的长卷称《无用师卷》。两段2011年曾在台北合璧展出。" },
+  { x: 18150, y: 330, r: 330, cat: "山水", title: "剩山图的主峰", tags: ["剩山图", "山", "披麻皴"],
+    desc: "火里抢出的前段只剩五十多厘米长。一座大山占去大半画面，山体用长长的披麻皴一层层堆出。" },
+  { x: 17035, y: 600, r: 260, cat: "建筑", title: "山脚的村落", tags: ["房屋", "村子", "山居"],
+    desc: "大山左侧的平地上有几处屋舍和成片的树林，是画中最早出现的“山居”。" },
+  { x: 16220, y: 590, r: 360, cat: "山水", title: "江心的洲渚", tags: ["沙洲", "松树", "远山"],
+    desc: "无用师卷的开头是一片江中洲渚，坡上松林成片，远处只用淡墨抹出一道山影。" },
+  { x: 15773, y: 665, r: 220, cat: "建筑", title: "水边的小亭", tags: ["亭", "水边"],
+    desc: "洲渚边上一座小亭，四面空敞，对着开阔的江面。" },
+  { x: 14290, y: 230, r: 420, cat: "画外", title: "乾隆认错的题字", tags: ["乾隆", "题跋", "真假", "子明卷", "梁诗正"],
+    desc: "乾隆先得到一卷《子明卷》，认定是真迹；第二年这卷真正的《无用师卷》进宫，反被他判为摹本，还让大臣梁诗正在画上写下这段鉴定。直到嘉庆年间，真伪才被纠正过来。" },
+  { x: 12590, y: 330, r: 420, cat: "山水", title: "层叠的主山", tags: ["山", "主峰", "矾头", "披麻皴"],
+    desc: "山峰一座接一座往后退，山顶堆着小石块，画史上叫“矾头”，是黄公望最有辨识度的画法。" },
+  { x: 10415, y: 495, r: 260, cat: "建筑", title: "山坳里的屋舍", tags: ["房屋", "山居", "松林"],
+    desc: "两山之间的平地上藏着几座屋舍，四周松林环绕，这就是画名里的“山居”。" },
+  { x: 9545, y: 780, r: 240, cat: "人物", title: "江上的渔舟", tags: ["渔夫", "船", "钓鱼"],
+    desc: "江面上一只小船，船上的人在垂钓。全卷人物极少，渔舟成了点出人间气息的小细节。" },
+  { x: 6640, y: 600, r: 500, cat: "山水", title: "平远的江岸", tags: ["平远", "坡岸", "留白", "江面"],
+    desc: "画到这里山势放平，只剩坡岸、疏树和远处淡淡的山影，大片留白就是江面。" },
+  { x: 5122, y: 780, r: 240, cat: "人物", title: "一叶小舟", tags: ["船", "渔夫"],
+    desc: "又一只小船泊在江边，和前面的渔舟遥相呼应。" },
+  { x: 4040, y: 650, r: 400, cat: "山水", title: "沿岸的杂树林", tags: ["树", "松", "柳"],
+    desc: "一排排杂树沿江岸铺开，松、柳和杂木用点、横、竖不同的笔法区分。" },
+  { x: 2540, y: 300, r: 420, cat: "山水", title: "卷尾的高峰", tags: ["山", "主峰"],
+    desc: "长卷将尽，又起一座高峰收住全局，山前是水边的坡石和树丛。" },
+  { x: 300, y: 450, r: 420, cat: "画外", title: "黄公望的自题", tags: ["黄公望", "自题", "无用师", "至正七年"],
+    desc: "卷末是黄公望自己写的题记：至正七年（1347年）他回到富春山居，为同门无用师画这卷，断断续续三四年才完成，题记写于至正十年（1350年）。" },
+];
+
+// 每幅画卷：W×H 是拼接后的像素尺寸；parts 是低清缩略图，strips 是按段加载的高清图
+const SCROLLS = {
+  qingming: {
+    title: "清明上河图", meta: "北宋 · 张择端 · 绢本设色 24.8 × 528.7 厘米",
+    W: 38414, H: 1800, placeholder: "找找看：骆驼、轿子、纤夫",
+    parts: [{ url: "img/qm-thumb.jpg", x: 0, w: 38414 }],
+    strips: [0, 1, 2, 3, 4, 5].map(i => ({ url: `img/qm-${i + 1}.jpg`, x: i * 6400, w: i < 5 ? 6400 : 6414 })),
+    notes: QINGMING_NOTES,
+    credit: `图像：<a href="https://commons.wikimedia.org/wiki/File:Alongtheriver_QingMing.jpg" target="_blank" rel="noopener">维基共享资源</a>（公有领域），原作藏北京故宫博物院。画中标注由 AI 初标、人工核对，难免有误，欢迎指正。`,
+  },
+  fuchun: {
+    title: "富春山居图", meta: "元 · 黄公望 · 纸本水墨 · 剩山图与无用师卷合璧",
+    W: 18405, H: 900, placeholder: "找找看：乾隆、渔舟、火烧",
+    parts: [{ url: "img/fc-thumb-a.jpg", x: 0, w: 16875 }, { url: "img/fc-thumb-b.jpg", x: 16955, w: 1450 }],
+    strips: [
+      { url: "img/fc-1.jpg", x: 0, w: 5625 }, { url: "img/fc-2.jpg", x: 5625, w: 5625 },
+      { url: "img/fc-3.jpg", x: 11250, w: 5625 }, { url: "img/fc-4.jpg", x: 16955, w: 1450 },
+    ],
+    notes: FUCHUN_NOTES,
+    credit: `图像：维基共享资源《<a href="https://commons.wikimedia.org/wiki/File:富春山居圖(剩山圖).jpg" target="_blank" rel="noopener">剩山图</a>》《<a href="https://commons.wikimedia.org/wiki/File:富春山居圖(無用師卷).jpg" target="_blank" rel="noopener">无用师卷</a>》（公有领域），原作分藏浙江省博物馆和台北故宫博物院。这里只保留画心、按原顺序拼接，中间的空隙代表火烧的断口。标注由 AI 初标、人工核对，欢迎指正。`,
+  },
+};
+
+const $ = s => document.querySelector(s);
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+/* ---------- 地图页 ---------- */
+let selected = "qingming";
+let activePeriod = "";
+let chart;
+const visible = () => PAINTINGS.filter(p => !activePeriod || p.period === activePeriod);
+
+function mapOption() {
+  const cinnabar = css("--cinnabar"), ink = css("--ink"), panel = css("--panel");
+  const narrow = $("#map").clientWidth < 520;
+  return {
+    animationDurationUpdate: 300,
+    geo: {
+      map: "china",
+      roam: true,
+      center: [104.5, 35.5],
+      zoom: narrow ? 1.15 : 1.25,
+      scaleLimit: { min: 1, max: 10 },
+      label: { show: false, emphasis: { show: false } },
+      itemStyle: { areaColor: css("--land"), borderColor: css("--land-edge"), borderWidth: 0.8 },
+      emphasis: { itemStyle: { areaColor: css("--land") }, label: { show: false } },
+      silent: true,
+    },
+    series: [{
+      type: "scatter",
+      coordinateSystem: "geo",
+      symbol: "rect",
+      cursor: "pointer",
+      data: visible().map(p => ({
+        name: p.name,
+        value: [p.lng, p.lat],
+        symbolSize: p.id === selected ? 18 : (p.scroll ? 13 : 10),
+        itemStyle: { color: cinnabar, borderColor: panel, borderWidth: p.id === selected ? 3 : 1.5 },
+        label: {
+          // 印章太密，平时只显示选中那幅的名字，鼠标移上去再显示其他的
+          show: p.id === selected, position: "right", distance: 6, formatter: "{b}",
+          color: ink, fontFamily: "ZCOOL XiaoWei, Noto Serif SC, serif", fontSize: 15,
+          backgroundColor: panel, padding: [2, 6], borderRadius: 3,
+        },
+      })),
+      emphasis: {
+        label: { show: true, position: "right", formatter: "{b}", color: ink, fontSize: 14,
+                 fontFamily: "ZCOOL XiaoWei, Noto Serif SC, serif", backgroundColor: panel, padding: [2, 6], borderRadius: 3 },
+      },
+    }],
+  };
+}
+
+function renderEras() {
+  const counts = Object.fromEntries(PERIODS.map(([p]) => [p, PAINTINGS.filter(x => x.period === p).length]));
+  $("#eras").innerHTML = [["", "全部", PAINTINGS.length], ...PERIODS.map(([p]) => [p, p, counts[p]])]
+    .map(([key, label, n]) => `<button class="era-chip" type="button" data-period="${key}" aria-pressed="${key === activePeriod}">${label}<small>${n}</small></button>`)
+    .join("");
+  $("#eras").querySelectorAll(".era-chip").forEach(b => b.addEventListener("click", () => {
+    activePeriod = b.dataset.period;
+    renderEras();
+    renderList();
+    chart.setOption(mapOption(), true);
+  }));
+}
+
+function renderDetail() {
+  const p = PAINTINGS.find(x => x.id === selected);
+  const place = p.basis ? `${p.place}<span class="basis">（${p.basis}）</span>` : p.place;
+  const rows = [["地点", place], ["作者", p.artist], ["形制", p.kind]];
+  if (p.keep) rows.push(["收藏", p.keep]);
+  const search = p.period !== "近现代"
+    ? `<a href="https://commons.wikimedia.org/w/index.php?search=${encodeURIComponent(p.name)}" target="_blank" rel="noopener">在维基共享资源搜这幅画 ↗</a>` : "";
+  $("#detail").innerHTML = `
+    <span class="era">${p.era} · ${p.period}</span>
+    <h2>${p.name}</h2>
+    ${p.thumb ? `<img class="thumb" src="${p.thumb}" alt="${p.name}局部">` : ""}
+    <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+    <p class="note">${p.note}</p>
+    ${p.scroll ? `<button class="open" id="open" type="button">展开画卷 →</button>` : search}`;
+  if (p.scroll) $("#open").addEventListener("click", () => openViewer(p.scroll));
+}
+
+function renderList() {
+  const groups = PERIODS.filter(([per]) => !activePeriod || per === activePeriod);
+  $("#list").innerHTML = groups.map(([per, years]) => {
+    const items = PAINTINGS.filter(p => p.period === per);
+    return `<h3>${per} · ${years}</h3>` + items.map(p => `
+      <li><button class="item" type="button" data-id="${p.id}" aria-current="${p.id === selected}">
+        <span class="nm">${p.name}${p.scroll ? `<span class="ready">可展开</span>` : ""}</span>
+        <span class="kind">${p.kind}</span>
+        <span class="pl">${p.era} · ${p.artist} · ${p.place}</span>
+      </button></li>`).join("");
+  }).join("");
+  $("#list").querySelectorAll(".item").forEach(b => b.addEventListener("click", () => select(b.dataset.id, true)));
+}
+
+function select(id, fly) {
+  selected = id;
+  renderDetail();
+  renderList();
+  chart.setOption(mapOption(), true);
+  if (fly) {
+    const p = PAINTINGS.find(x => x.id === id);
+    chart.setOption({ geo: { center: [p.lng, p.lat], zoom: Math.max(chart.getOption().geo[0].zoom, 2.4) } });
+  }
+}
+
+function initMap() {
+  chart = echarts.init($("#map"));
+  chart.setOption(mapOption());
+  chart.on("click", e => {
+    const p = PAINTINGS.find(x => x.name === e.name);
+    if (p) select(p.id, false);
+  });
+  addEventListener("resize", () => chart.resize());
+  // 跟随主题切换重新上色
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => chart.setOption(mapOption(), true));
+  new MutationObserver(() => chart.setOption(mapOption(), true))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  renderEras();
+  renderDetail();
+  renderList();
+}
+
+/* ---------- 画卷页 ---------- */
+let viewer, S, current = -1, activeCat = "", dots = new Map();
+const tour = () => S.notes.slice().sort((a, b) => b.x - a.x);   // 手卷从右往左看
+
+function toPoint(x, y) { return new OpenSeadragon.Point(x / S.W, y / S.W); }
+
+function openViewer(id) {
+  $("#viewer").hidden = false;
+  if (S === SCROLLS[id] && viewer) { viewer.forceRedraw(); return; }
+  if (viewer) { viewer.destroy(); viewer = null; }
+  S = SCROLLS[id];
+  current = -1;
+  activeCat = "";
+  dots = new Map();
+  $("#v-title").textContent = S.title;
+  $("#v-meta").textContent = S.meta;
+  $("#v-credit").innerHTML = S.credit;
+  $("#q").value = "";
+  $("#q").placeholder = S.placeholder;
+  $("#results").hidden = true;
+  $("#strip").querySelectorAll("img").forEach(img => img.remove());
+  S.parts.forEach(p => {
+    const img = document.createElement("img");
+    img.src = p.url;
+    img.alt = "";
+    img.style.left = `${(p.x / S.W) * 100}%`;
+    img.style.width = `${(p.w / S.W) * 100}%`;
+    $("#strip").prepend(img);
+  });
+  initViewer();
+}
+
+function closeViewer() {
+  $("#viewer").hidden = true;
+  $("#results").hidden = true;
+}
+
+function initViewer() {
+  viewer = OpenSeadragon({
+    element: $("#osd"),
+    showNavigationControl: false,
+    visibilityRatio: 1,
+    constrainDuringPan: true,
+    maxZoomPixelRatio: 2.5,
+    gestureSettingsMouse: { clickToZoom: false },
+    gestureSettingsTouch: { clickToZoom: false },
+    // 先铺低清缩略图，打开后再按段换成高清
+    tileSources: S.parts.map(p => ({ tileSource: { type: "image", url: p.url, buildPyramid: false }, x: p.x / S.W, width: p.w / S.W })),
+  });
+  viewer.addOnceHandler("open", () => {
+    S.strips.forEach(s => viewer.addTiledImage({ tileSource: { type: "image", url: s.url }, x: s.x / S.W, width: s.w / S.W }));
+    const list = tour();
+    list.forEach((a, i) => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "dot";
+      el.textContent = i + 1;
+      el.setAttribute("aria-label", a.title);
+      new OpenSeadragon.MouseTracker({ element: el, clickHandler: () => go(i) });
+      viewer.addOverlay({ element: el, location: toPoint(a.x, a.y), placement: OpenSeadragon.Placement.CENTER });
+      dots.set(a, el);
+    });
+    home();
+    renderCard();
+  });
+  viewer.addHandler("viewport-change", updateLens);
+  renderChips();
+}
+
+function home() {
+  // 从卷首（右端）开始，高度铺满
+  const box = viewer.viewport.getContainerSize();
+  const width = Math.min(1, (S.H / S.W) * (box.x / box.y));
+  viewer.viewport.fitBounds(new OpenSeadragon.Rect(1 - width, 0, width, S.H / S.W), true);
+}
+
+function go(i) {
+  const list = tour();
+  if (!list.length) return;
+  current = (i + list.length) % list.length;
+  const a = list[current];
+  const r = a.r || 260;
+  viewer.viewport.fitBounds(new OpenSeadragon.Rect((a.x - r) / S.W, Math.max(0, a.y - r * 0.62) / S.W, (2 * r) / S.W, (1.24 * r) / S.W));
+  dots.forEach((el, b) => el.classList.toggle("on", b === a));
+  renderCard();
+}
+
+function renderCard() {
+  const list = tour();
+  const a = list[current];
+  $("#card").innerHTML = a ? `
+      <span class="cat">${a.cat}</span>
+      <h3>${a.title}</h3>
+      <p>${a.desc}</p>
+      <div class="nav">
+        <button class="ghost" type="button" id="prev">← 上一处</button>
+        <span>${current + 1} / ${list.length}</span>
+        <button class="ghost" type="button" id="next">下一处 →</button>
+      </div>` : `
+      <span class="cat">怎么看</span>
+      <h3>手卷从右往左展开</h3>
+      <p>拖动画面往左走，滚轮或双指放大。红点处都标了画里的细节，共 ${list.length} 处。</p>
+      <div class="nav"><button class="ghost" type="button" id="next">开始导览 →</button></div>`;
+  $("#prev")?.addEventListener("click", () => go(current - 1));
+  $("#next").addEventListener("click", () => go(current + 1));
+}
+
+function renderChips() {
+  const cats = [...new Set(S.notes.map(a => a.cat))];
+  const counts = cats.map(c => [c, S.notes.filter(a => a.cat === c).length]);
+  $("#chips").innerHTML = [["", S.notes.length], ...counts].map(([c, n]) =>
+    `<button class="chip" type="button" data-cat="${c}" aria-pressed="${c === activeCat}">${c || "全部"} ${n}</button>`).join("");
+  $("#chips").querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => {
+    activeCat = b.dataset.cat;
+    renderChips();
+    applyFilter();
+  }));
+}
+
+function matches(a, q) {
+  const text = `${a.title} ${a.desc} ${a.cat} ${(a.tags || []).join(" ")}`;
+  return (!activeCat || a.cat === activeCat) && (!q || q.split(/\s+/).every(w => text.includes(w)));
+}
+
+function applyFilter() {
+  const q = $("#q").value.trim();
+  dots.forEach((el, a) => el.classList.toggle("dim", !matches(a, q)));
+  const box = $("#results");
+  if (!q) { box.hidden = true; return; }
+  const list = tour();
+  const hits = list.filter(a => matches(a, q));
+  box.hidden = false;
+  box.innerHTML = hits.length
+    ? hits.map(a => `<li><button type="button" data-i="${list.indexOf(a)}">${a.title}<small>${a.cat}</small></button></li>`).join("")
+    : `<li><button type="button" disabled>画里没找到“${q}”，换个词试试</button></li>`;
+  box.querySelectorAll("button[data-i]").forEach(b => b.addEventListener("click", () => {
+    go(Number(b.dataset.i));
+    box.hidden = true;
+  }));
+}
+
+function updateLens() {
+  const b = viewer.viewport.getBounds();
+  $("#lens").style.left = `${Math.max(0, b.x) * 100}%`;
+  $("#lens").style.width = `${Math.min(1, b.width) * 100}%`;
+}
+
+$("#strip").addEventListener("click", e => {
+  if (!viewer) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  viewer.viewport.panTo(new OpenSeadragon.Point(x, viewer.viewport.getCenter().y));
+});
+$("#q").addEventListener("input", applyFilter);
+$("#q").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("#results button[data-i]")?.click();
+  if (e.key === "Escape") { e.target.value = ""; applyFilter(); }
+});
+$("#back").addEventListener("click", closeViewer);
+addEventListener("keydown", e => {
+  if ($("#viewer").hidden || e.target.matches("input")) return;
+  if (e.key === "ArrowLeft") go(current + 1);   // 往左走就是往后看
+  if (e.key === "ArrowRight") go(current - 1);
+  if (e.key === "Escape") closeViewer();
+});
+
+initMap();
+const hash = location.hash.slice(1);
+if (SCROLLS[hash]) { select(hash, false); openViewer(hash); }
+</script>
