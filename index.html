@@ -100,9 +100,26 @@
   .detail dt { color: var(--ink-soft); }
   .detail dd { margin: 0; }
   .detail .note { margin: 4px 0 0; }
-  .detail .thumb { width: 100%; border-radius: 4px; border: 1px solid var(--line); display: block; }
+  .detail figure { margin: 4px 0; display: grid; gap: 4px; }
+  .detail .thumb {
+    width: 100%; max-height: 300px; object-fit: contain;
+    border-radius: 4px; border: 1px solid var(--line); background: var(--paper);
+    display: block; cursor: zoom-in; padding: 0;
+  }
+  .detail figcaption { font-size: 12px; color: var(--ink-soft); }
+  .detail figcaption a { color: inherit; }
+  .detail .noimg { margin: 2px 0; padding: 10px 12px; font-size: 13px; color: var(--ink-soft); border: 1px dashed var(--line); border-radius: 4px; }
   .detail .basis { font-size: 12px; color: var(--ink-soft); }
-  .detail a { color: var(--azurite); font-size: 14px; }
+
+  .lightbox {
+    position: fixed; inset: 0; z-index: 30;
+    display: grid; place-items: center; gap: 10px;
+    padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    background: rgb(10 14 13 / 0.88);
+    cursor: zoom-out;
+  }
+  .lightbox img { max-width: 100%; max-height: 82vh; object-fit: contain; border-radius: 4px; }
+  .lightbox p { margin: 0; color: #e4e8e3; font-size: 14px; text-align: center; }
   .open {
     justify-self: start;
     margin-top: 6px;
@@ -119,7 +136,8 @@
   .item {
     width: 100%;
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 52px 1fr auto;
+    align-items: start;
     gap: 2px 10px;
     padding: 6px 20px;
     border: 0;
@@ -129,7 +147,12 @@
   .item:hover { background: var(--paper); }
   .item[aria-current="true"] { background: var(--paper); box-shadow: inset 3px 0 0 var(--cinnabar); }
   .item .nm { font-family: var(--font-display); font-size: 18px; line-height: 1.3; }
-  .item .pl { grid-column: 1 / -1; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+  .item .pl { grid-column: 2 / -1; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+  .item .mini {
+    grid-row: span 2; width: 52px; height: 52px; object-fit: cover;
+    border-radius: 3px; border: 1px solid var(--line); background: var(--paper);
+  }
+  .item .mini.blank { display: grid; place-items: center; font-size: 11px; color: var(--ink-soft); }
   .item .kind { font-size: 12px; color: var(--azurite); align-self: center; }
   .item .ready {
     display: inline-block;
@@ -271,6 +294,13 @@
     <p class="credit" id="v-credit"></p>
   </div>
 </section>
+
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-label="查看大图">
+  <img id="lb-img" alt="">
+  <p id="lb-cap"></p>
+</div>
+
+<script src="works.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/dist/echarts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/china.js"></script>
@@ -643,22 +673,45 @@ function renderEras() {
   }));
 }
 
+const WORKS = window.WORK_IMAGES || {};
+
+// 卡片里的图：能展开的画卷用自己的局部图，其他用维基共享资源上授权可用的图
+function imageOf(p) {
+  if (p.scroll) return { src: p.thumb, credit: "画卷局部，点“展开画卷”看全卷" };
+  const w = WORKS[p.id];
+  if (!w) return null;
+  return { src: w.src, credit: `图像：<a href="${w.page}" target="_blank" rel="noopener">维基共享资源</a> · ${w.license}` };
+}
+
 function renderDetail() {
   const p = PAINTINGS.find(x => x.id === selected);
   const place = p.basis ? `${p.place}<span class="basis">（${p.basis}）</span>` : p.place;
   const rows = [["地点", place], ["作者", p.artist], ["形制", p.kind]];
   if (p.keep) rows.push(["收藏", p.keep]);
-  const search = p.period !== "近现代"
-    ? `<a href="https://commons.wikimedia.org/w/index.php?search=${encodeURIComponent(p.name)}" target="_blank" rel="noopener">在维基共享资源搜这幅画 ↗</a>` : "";
+  const img = imageOf(p);
+  const figure = img
+    ? `<figure><button class="thumb" type="button" id="zoom" aria-label="查看${p.name}大图"><img class="thumb" src="${img.src}" alt="${p.name}"></button>
+        <figcaption>${img.credit}</figcaption></figure>`
+    : `<p class="noimg">${p.period === "近现代"
+        ? "近现代作品的版权情况各不相同，这里暂时只收录文字介绍，不收录图像。"
+        : "暂时没找到授权可以公开使用的图像，欢迎补充。"}</p>`;
   $("#detail").innerHTML = `
     <span class="era">${p.era} · ${p.period}</span>
     <h2>${p.name}</h2>
-    ${p.thumb ? `<img class="thumb" src="${p.thumb}" alt="${p.name}局部">` : ""}
+    ${figure}
     <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
     <p class="note">${p.note}</p>
-    ${p.scroll ? `<button class="open" id="open" type="button">展开画卷 →</button>` : search}`;
+    ${p.scroll ? `<button class="open" id="open" type="button">展开画卷 →</button>` : ""}`;
   if (p.scroll) $("#open").addEventListener("click", () => openViewer(p.scroll));
+  $("#zoom")?.addEventListener("click", () => {
+    $("#lb-img").src = img.src;
+    $("#lb-img").alt = p.name;
+    $("#lb-cap").textContent = `${p.name} · ${p.era} · ${p.artist}`;
+    $("#lightbox").hidden = false;
+  });
 }
+
+$("#lightbox").addEventListener("click", () => { $("#lightbox").hidden = true; });
 
 function renderList() {
   const groups = PERIODS.filter(([per]) => !activePeriod || per === activePeriod);
@@ -666,6 +719,7 @@ function renderList() {
     const items = PAINTINGS.filter(p => p.period === per);
     return `<h3>${per} · ${years}</h3>` + items.map(p => `
       <li><button class="item" type="button" data-id="${p.id}" aria-current="${p.id === selected}">
+        ${imageOf(p) ? `<img class="mini" src="${imageOf(p).src}" alt="" loading="lazy">` : `<span class="mini blank">无图</span>`}
         <span class="nm">${p.name}${p.scroll ? `<span class="ready">可展开</span>` : ""}</span>
         <span class="kind">${p.kind}</span>
         <span class="pl">${p.era} · ${p.artist} · ${p.place}</span>

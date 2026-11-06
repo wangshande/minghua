@@ -26,9 +26,21 @@ python3 -m http.server 8000
 ## 目录
 
 ```
-index.html          整个应用：地图、名画数据、画卷浏览、标注都在这一个文件里
-img/                切好的画卷图片（qm-* 清明上河图，fc-* 富春山居图）
-tools/crop.swift    裁图工具：从原图裁出画心、切段、做缩略图（macOS 自带 Swift 即可运行）
+index.html              整个应用：地图、名画数据、画卷浏览、标注都在这一个文件里
+works.js                每幅画卡片配图的出处和授权（由脚本生成）
+img/                    切好的画卷图片（qm-* 清明上河图，fc-* 富春山居图）
+img/works/              各幅名画的卡片配图
+tools/crop.swift        裁图工具：从原图裁出画心、切段、做缩略图（macOS 自带 Swift 即可运行）
+tools/find_works.py     在维基共享资源上给每幅画找授权可用的图，结果存进 works-sources.json
+tools/fetch_works.py    下载找到的图，做成卡片配图，生成 works.js
+```
+
+更新卡片配图：
+
+```bash
+swiftc -O tools/crop.swift -o tools/crop
+python3 tools/find_works.py        # 找图（自动找到的只是候选，要人工核对）
+python3 tools/fetch_works.py       # 下载、做缩略图、生成 works.js
 ```
 
 ## 加一幅画
@@ -59,6 +71,7 @@ swiftc -O tools/crop.swift -o crop
 |---|---|---|
 | 《清明上河图》图像 | [维基共享资源](https://commons.wikimedia.org/wiki/File:Alongtheriver_QingMing.jpg)，原作藏北京故宫博物院 | 公有领域 |
 | 《富春山居图》图像 | 维基共享资源《[剩山图](https://commons.wikimedia.org/wiki/File:富春山居圖(剩山圖).jpg)》《[无用师卷](https://commons.wikimedia.org/wiki/File:富春山居圖(無用師卷).jpg)》，原作分藏浙江省博物馆、台北故宫博物院 | 公有领域 |
+| 各幅名画的卡片配图 | 维基共享资源，每张的出处见 `works.js`，卡片上也会注明 | 多为公有领域，少数为 CC BY-SA，以各文件页面为准 |
 | 中国地图 | [ECharts 4.9.0](https://github.com/apache/echarts) 自带的 china.js | Apache-2.0 |
 | 名画介绍、画中标注 | 本项目整理 | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | 代码 | 本项目 | [MIT](LICENSE) |
