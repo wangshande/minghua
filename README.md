@@ -2,6 +2,8 @@
 
 **把历代名画放回它画的地方。**
 
+**在线体验：<https://wangshande.github.io/minghua/>**
+
 *An interactive map of China that puts famous paintings back where they were painted — from the Kizil caves in Xinjiang to the murals of Tibet and the tombs of the Northeast. Two masterpieces open as fully zoomable, annotated handscrolls.*
 
 ## 能做什么
